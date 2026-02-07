@@ -132,6 +132,38 @@ uint8_t __remill_undefined_8(void) {
   return 0;
 }
 
+MemoryHandler *__remill_barrier_load_load(MemoryHandler *mem) {
+  return mem;
+}
+
+MemoryHandler *__remill_barrier_load_store(MemoryHandler *mem) {
+  return mem;
+}
+
+MemoryHandler *__remill_barrier_store_load(MemoryHandler *mem) {
+  return mem;
+}
+
+MemoryHandler *__remill_barrier_store_store(MemoryHandler *mem) {
+  return mem;
+}
+
+MemoryHandler *__remill_atomic_begin(MemoryHandler *mem) {
+  return mem;
+}
+
+MemoryHandler *__remill_atomic_end(MemoryHandler *mem) {
+  return mem;
+}
+
+MemoryHandler *__remill_delay_slot_begin(MemoryHandler *mem) {
+  return mem;
+}
+
+MemoryHandler *__remill_delay_slot_end(MemoryHandler *mem) {
+  return mem;
+}
+
 uint8_t __remill_read_memory_8(MemoryHandler *memory, uint64_t addr) {
   LOG(INFO) << "Reading " << std::hex << addr;
   auto res = memory->ReadMemory<uint8_t>(addr);
@@ -207,9 +239,35 @@ MemoryHandler *__remill_sync_hyper_call(ArchState &state, MemoryHandler *mem,
       state.hyper_call = AsyncHyperCall::kRISCVBreak;
       break;
 
+    case SyncHyperCall::kMIPSEmulateInstruction:
+      state.hyper_call = AsyncHyperCall::kMIPSEmulateInstruction;
+      break;
+
+    case SyncHyperCall::kMIPSSysCall:
+      state.hyper_call = AsyncHyperCall::kMIPSSysCall;
+      break;
+
+    case SyncHyperCall::kMIPSBreak:
+      state.hyper_call = AsyncHyperCall::kMIPSBreak;
+      break;
+
+    case SyncHyperCall::kMIPSTrap:
+      state.hyper_call = AsyncHyperCall::kMIPSTrap;
+      break;
+
     default:
       break;
   }
+  return mem;
+}
+
+MemoryHandler *__remill_error(ArchState &, uint64_t, MemoryHandler *) {
+  LOG(FATAL) << "__remill_error invoked during test execution";
+  return nullptr;
+}
+
+MemoryHandler *__remill_missing_block(ArchState &, uint64_t,
+                                      MemoryHandler *mem) {
   return mem;
 }
 }
