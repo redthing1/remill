@@ -1503,8 +1503,6 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
 
   LiftStatus LiftBranchTaken(llvm::IRBuilder<> &bldr,
                              const sleigh::BranchTakenVar &btaken_var) {
-
-
     auto maybe_should_branch =
         this->LiftIntegerInParam(bldr, btaken_var.target_vnode);
     if (!maybe_should_branch) {
@@ -1512,8 +1510,15 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
       return LiftStatus::kLiftedLifterError;
     }
 
-    auto should_branch = bldr.CreateZExtOrTrunc(
-        *maybe_should_branch, llvm::IntegerType::get(this->context, 8));
+    auto cond = bldr.CreateICmpNE(
+        *maybe_should_branch,
+        llvm::ConstantInt::get((*maybe_should_branch)->getType(), 0));
+    if (btaken_var.invert) {
+      cond = bldr.CreateNot(cond);
+    }
+
+    auto should_branch = bldr.CreateZExt(
+        cond, llvm::IntegerType::get(this->context, 8));
     auto branch_taken_ref = this->GetBranchTakenRef();
     bldr.CreateStore(should_branch, branch_taken_ref);
     return LiftStatus::kLiftedInstruction;
