@@ -450,6 +450,14 @@ class Arch {
   static ArchPtr GetSleighRISCV64(llvm::LLVMContext *context, OSName os,
                                   ArchName arch_name);
 
+  // Defined in `lib/Arch/Sleigh/MIPSArch.cpp`
+  static ArchPtr GetSleighMIPS32EL(llvm::LLVMContext *context, OSName os,
+                                   ArchName arch_name);
+
+  // Defined in `lib/Arch/Sleigh/MIPSArch.cpp`
+  static ArchPtr GetSleighMIPS64EL(llvm::LLVMContext *context, OSName os,
+                                   ArchName arch_name);
+
   // Defined in `lib/Arch/SPARC32/Arch.cpp`.
   static ArchPtr GetSPARC32(llvm::LLVMContext *context, OSName os,
                           ArchName arch_name);

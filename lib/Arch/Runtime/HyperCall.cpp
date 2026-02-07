@@ -42,6 +42,9 @@
 #elif defined(__riscv)
 #  include "remill/Arch/RISCV/Runtime/State.h"
 #  define REMILL_HYPERCALL_RISCV 1
+#elif defined(__mips__) || defined(__mips)
+#  include "remill/Arch/MIPS/Runtime/State.h"
+#  define REMILL_HYPERCALL_MIPS 1
 #else
 #  error "Cannot deduce hyper call architecture"
 #endif
@@ -440,6 +443,28 @@ Memory *__remill_sync_hyper_call(State &state, Memory *mem,
 
     case SyncHyperCall::kRISCVBreak:
       state.hyper_call = AsyncHyperCall::kRISCVBreak;
+      break;
+
+#elif defined(REMILL_HYPERCALL_MIPS)
+
+    // MIPS usermode in Remill uses hypercalls as an explicit escape hatch for
+    // system/privileged behavior. We make them observable by setting the
+    // `AsyncHyperCall` marker in the state.
+    case SyncHyperCall::kAssertPrivileged:
+    case SyncHyperCall::kMIPSEmulateInstruction:
+      state.hyper_call = AsyncHyperCall::kMIPSEmulateInstruction;
+      break;
+
+    case SyncHyperCall::kMIPSSysCall:
+      state.hyper_call = AsyncHyperCall::kMIPSSysCall;
+      break;
+
+    case SyncHyperCall::kMIPSBreak:
+      state.hyper_call = AsyncHyperCall::kMIPSBreak;
+      break;
+
+    case SyncHyperCall::kMIPSTrap:
+      state.hyper_call = AsyncHyperCall::kMIPSTrap;
       break;
 
 #endif

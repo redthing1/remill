@@ -29,6 +29,8 @@ ArchName GetArchName(const llvm::Triple &triple) {
     case llvm::Triple::sparc: return kArchSparc32;
     case llvm::Triple::sparcv9: return kArchSparc64;
     case llvm::Triple::ppc: return kArchPPC;
+    case llvm::Triple::mipsel: return kArchMIPS32LittleEndian;
+    case llvm::Triple::mips64el: return kArchMIPS64LittleEndian;
     case llvm::Triple::riscv32: return kArchRISCV32;
     case llvm::Triple::riscv64: return kArchRISCV64;
     default: return kArchInvalid;
@@ -80,6 +82,12 @@ ArchName GetArchName(std::string_view arch_name) {
   } else if (arch_name == "ppc") {
     return kArchPPC;
 
+  } else if (arch_name == "mips32el") {
+    return kArchMIPS32LittleEndian;
+
+  } else if (arch_name == "mips64el") {
+    return kArchMIPS64LittleEndian;
+
   } else if (arch_name == "aarch64_sleigh") {
     return kArchAArch64LittleEndian_SLEIGH;
   } else if (arch_name == "riscv32") {
@@ -111,6 +119,8 @@ static const std::string_view kArchNames[] = {
     [kArchSparc32_SLEIGH] = "sparc32_sleigh",
     [kArchThumb2LittleEndian] = "thumb2",
     [kArchPPC] = "ppc",
+    [kArchMIPS32LittleEndian] = "mips32el",
+    [kArchMIPS64LittleEndian] = "mips64el",
     [kArchRISCV32] = "riscv32",
     [kArchRISCV64] = "riscv64",
 };

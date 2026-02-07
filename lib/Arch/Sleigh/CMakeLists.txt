@@ -41,6 +41,7 @@ add_library(remill_arch_sleigh STATIC
   "${REMILL_INCLUDE_DIR}/remill/Arch/PPC/Runtime/State.h"
 
   "${REMILL_INCLUDE_DIR}/remill/Arch/RISCV/Runtime/State.h"
+  "${REMILL_INCLUDE_DIR}/remill/Arch/MIPS/Runtime/State.h"
 
   Arch.h
   Thumb.h
@@ -50,6 +51,7 @@ add_library(remill_arch_sleigh STATIC
   Thumb2Arch.cpp
   PPCArch.cpp
   RISCVArch.cpp
+  MIPSArch.cpp
   ControlFlowStructuring.cpp
   ControlFlowStructuring.h
 

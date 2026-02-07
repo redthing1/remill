@@ -58,6 +58,7 @@ static unsigned AddressSize(ArchName arch_name) {
     case kArchSparc32:
     case kArchSparc32_SLEIGH:
     case kArchPPC:
+    case kArchMIPS32LittleEndian:
     case kArchRISCV32: return 32;
     case kArchAMD64:
     case kArchAMD64_AVX:
@@ -66,6 +67,7 @@ static unsigned AddressSize(ArchName arch_name) {
     case kArchAArch64LittleEndian:
     case kArchAArch64LittleEndian_SLEIGH:
     case kArchSparc64:
+    case kArchMIPS64LittleEndian:
     case kArchRISCV64: return 64;
   }
   return 0;
@@ -118,6 +120,8 @@ ArchLocker Arch::Lock(ArchName arch_name_) {
     case ArchName::kArchX86_SLEIGH:
     case ArchName::kArchSparc32_SLEIGH:
     case ArchName::kArchPPC:
+    case ArchName::kArchMIPS32LittleEndian:
+    case ArchName::kArchMIPS64LittleEndian:
     case ArchName::kArchRISCV32:
     case ArchName::kArchRISCV64: return &gSleighArchLock;
     default: return ArchLocker();
@@ -248,6 +252,16 @@ auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_,
     case kArchPPC: {
       DLOG(INFO) << "Using architecture: PowerPC";
       return GetSleighPPC(context_, os_name_, arch_name_);
+    }
+
+    case kArchMIPS32LittleEndian: {
+      DLOG(INFO) << "Using architecture: MIPS32 Little Endian Sleigh";
+      return GetSleighMIPS32EL(context_, os_name_, arch_name_);
+    }
+
+    case kArchMIPS64LittleEndian: {
+      DLOG(INFO) << "Using architecture: MIPS64 Little Endian Sleigh";
+      return GetSleighMIPS64EL(context_, os_name_, arch_name_);
     }
 
     case kArchRISCV32: {

@@ -1408,6 +1408,22 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
   LiftStatus HandleCallOther(llvm::IRBuilder<> &bldr,
                              std::optional<VarnodeData> outvar,
                              VarnodeData *vars, int4 isize) {
+    auto invoke_sync_hyper_call = [&](SyncHyperCall::Name call) -> LiftStatus {
+      const auto mem_ptr_ref = LoadMemoryPointerRef(bldr.GetInsertBlock());
+      auto mem_ptr =
+          bldr.CreateLoad(insn_lifter_parent.GetMemoryType(), mem_ptr_ref);
+
+      auto hyper_call = llvm::ConstantInt::get(
+          llvm::IntegerType::get(this->context, 32),
+          static_cast<uint32_t>(call));
+      std::array<llvm::Value *, 3> args = {state_pointer, mem_ptr, hyper_call};
+
+      auto new_mem_ptr = bldr.CreateCall(
+          insn_lifter_parent.GetIntrinsicTable()->sync_hyper_call, args);
+      bldr.CreateStore(new_mem_ptr, mem_ptr_ref);
+      return kLiftedInstruction;
+    };
+
     auto other_func_name = this->GetOtherFuncName(vars, isize);
     if (other_func_name.has_value()) {
       if (other_func_name == kEqualityClaimName &&
@@ -1420,69 +1436,74 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
       if (other_func_name == kSysCallName &&
           insn.arch_name == ArchName::kArchPPC) {
         DLOG(INFO) << "Invoking syscall";
-
-        const auto mem_ptr_ref = LoadMemoryPointerRef(bldr.GetInsertBlock());
-        auto mem_ptr =
-            bldr.CreateLoad(insn_lifter_parent.GetMemoryType(), mem_ptr_ref);
-
-        // Get a LLVM value for the sync hyper call enumeration.
-        auto hyper_call_int =
-            static_cast<uint32_t>(SyncHyperCall::Name::kPPCSysCall);
-        auto hyper_call = llvm::ConstantInt::get(
-            llvm::IntegerType::get(this->context, 32), hyper_call_int);
-        std::array<llvm::Value *, 3> args = {state_pointer, mem_ptr,
-                                             hyper_call};
-
-        auto new_mem_ptr = bldr.CreateCall(
-            insn_lifter_parent.GetIntrinsicTable()->sync_hyper_call, args);
-        bldr.CreateStore(new_mem_ptr, mem_ptr_ref);
-
-        return kLiftedInstruction;
+        return invoke_sync_hyper_call(SyncHyperCall::Name::kPPCSysCall);
       }
 
       if (insn.arch_name == ArchName::kArchRISCV32 ||
           insn.arch_name == ArchName::kArchRISCV64) {
         if (other_func_name == kSysCallName || other_func_name == "ecall") {
           DLOG(INFO) << "Invoking RISC-V ecall hypercall";
-
-          const auto mem_ptr_ref = LoadMemoryPointerRef(bldr.GetInsertBlock());
-          auto mem_ptr =
-              bldr.CreateLoad(insn_lifter_parent.GetMemoryType(), mem_ptr_ref);
-
-          const auto hyper_call_int =
-              static_cast<uint32_t>(SyncHyperCall::Name::kRISCVSysCall);
-          auto hyper_call = llvm::ConstantInt::get(
-              llvm::IntegerType::get(this->context, 32), hyper_call_int);
-          std::array<llvm::Value *, 3> args = {state_pointer, mem_ptr,
-                                               hyper_call};
-
-          auto new_mem_ptr = bldr.CreateCall(
-              insn_lifter_parent.GetIntrinsicTable()->sync_hyper_call, args);
-          bldr.CreateStore(new_mem_ptr, mem_ptr_ref);
-          return kLiftedInstruction;
+          return invoke_sync_hyper_call(SyncHyperCall::Name::kRISCVSysCall);
         }
 
         if (other_func_name == "ebreak" || other_func_name == "break" ||
             other_func_name == "breakpoint") {
           DLOG(INFO) << "Invoking RISC-V ebreak hypercall";
-
-          const auto mem_ptr_ref = LoadMemoryPointerRef(bldr.GetInsertBlock());
-          auto mem_ptr =
-              bldr.CreateLoad(insn_lifter_parent.GetMemoryType(), mem_ptr_ref);
-
-          const auto hyper_call_int =
-              static_cast<uint32_t>(SyncHyperCall::Name::kRISCVBreak);
-          auto hyper_call = llvm::ConstantInt::get(
-              llvm::IntegerType::get(this->context, 32), hyper_call_int);
-          std::array<llvm::Value *, 3> args = {state_pointer, mem_ptr,
-                                               hyper_call};
-
-          auto new_mem_ptr = bldr.CreateCall(
-              insn_lifter_parent.GetIntrinsicTable()->sync_hyper_call, args);
-          bldr.CreateStore(new_mem_ptr, mem_ptr_ref);
-          return kLiftedInstruction;
+          return invoke_sync_hyper_call(SyncHyperCall::Name::kRISCVBreak);
         }
       }
+
+      if (insn.arch_name == ArchName::kArchMIPS32LittleEndian ||
+          insn.arch_name == ArchName::kArchMIPS64LittleEndian) {
+
+        if (other_func_name == "syscall") {
+          DLOG(INFO) << "Invoking MIPS syscall hypercall";
+          return invoke_sync_hyper_call(SyncHyperCall::Name::kMIPSSysCall);
+        }
+
+        if (other_func_name == "break" ||
+            other_func_name == "signalDebugBreakpointException") {
+          DLOG(INFO) << "Invoking MIPS break hypercall";
+          return invoke_sync_hyper_call(SyncHyperCall::Name::kMIPSBreak);
+        }
+
+        if (other_func_name == "trap") {
+          if (insn.function == "break") {
+            DLOG(INFO) << "Invoking MIPS break hypercall (via trap pcodeop)";
+            return invoke_sync_hyper_call(SyncHyperCall::Name::kMIPSBreak);
+          }
+
+          DLOG(INFO) << "Invoking MIPS trap hypercall";
+          return invoke_sync_hyper_call(SyncHyperCall::Name::kMIPSTrap);
+        }
+
+        if (other_func_name == "SYNC" || other_func_name == "synch") {
+          DLOG(INFO) << "Lifting MIPS sync as a compiler barrier";
+
+          const auto mem_ptr_ref = LoadMemoryPointerRef(bldr.GetInsertBlock());
+          llvm::Value *mem_ptr =
+              bldr.CreateLoad(insn_lifter_parent.GetMemoryType(), mem_ptr_ref);
+          mem_ptr = bldr.CreateCall(
+              insn_lifter_parent.GetIntrinsicTable()->barrier_store_load,
+              {mem_ptr});
+          bldr.CreateStore(mem_ptr, mem_ptr_ref);
+          return kLiftedInstruction;
+        }
+
+        if (other_func_name == "prefetch" || other_func_name == "cacheOp" ||
+            other_func_name == "hazzard" || other_func_name == "wait") {
+          // Prefetch/cache/hazard/wait have no usermode-observable architectural
+          // behavior in Remill. Lift them as no-ops.
+          return kLiftedInstruction;
+        }
+
+        // For any unhandled MIPS userop, conservatively fall back to an
+        // emulate-instruction hypercall so the instruction remains liftable.
+        DLOG(ERROR) << "Unhandled MIPS pcode intrinsic: " << *other_func_name;
+        return invoke_sync_hyper_call(
+            SyncHyperCall::Name::kMIPSEmulateInstruction);
+      }
+
       DLOG(ERROR) << "Unsupported pcode intrinsic: " << *other_func_name;
     }
     return kLiftedUnsupportedInstruction;
@@ -1885,32 +1906,57 @@ LiftStatus SleighLifter::LiftIntoBlockWithSleighState(
   const auto [next_pc_ref, next_pc_ref_type] =
       LoadRegAddress(block, state_ptr, kNextPCVariableName);
 
+  llvm::IRBuilder<> ir(block);
+  (void) next_pc_ref_type;
+  const auto next_pc = ir.CreateLoad(this->GetWordType(), next_pc_ref);
 
-  llvm::IRBuilder<> intoblock_builer(block);
+  if (is_delayed) {
+    // Delay slot instructions should execute with `NEXT_PC` already set to the
+    // post-delay target. Preserve it across lifting, and restore it after the
+    // delay slot instruction's semantics complete.
+    const auto mem_ptr_ref = LoadMemoryPointerRef(block);
+    llvm::Value *mem_ptr = ir.CreateLoad(this->GetMemoryType(), mem_ptr_ref);
+    mem_ptr =
+        ir.CreateCall(this->GetIntrinsicTable()->delay_slot_begin, {mem_ptr});
+    ir.CreateStore(mem_ptr, mem_ptr_ref);
 
+    // Make the architectural PC value available if the SLEIGH semantics read
+    // it (e.g. pseudo-PC semantics on some ISAs).
+    const auto delayed_pc = llvm::ConstantInt::get(this->GetWordType(), inst.pc);
+    ir.CreateStore(
+        ir.CreateZExtOrTrunc(
+            this->decoder.LiftPcFromCurrPc(ir, delayed_pc, inst.bytes.size(),
+                                           DecodingContext(context_values)),
+            pc_ref_type),
+        pc_ref);
 
-  const auto next_pc =
-      intoblock_builer.CreateLoad(this->GetWordType(), next_pc_ref);
+  } else {
+    // Set up the architectural PC / fallthrough NEXT_PC for normal instruction
+    // execution. Control flow instructions may overwrite `NEXT_PC`.
+    ir.CreateStore(
+        ir.CreateZExtOrTrunc(
+            this->decoder.LiftPcFromCurrPc(ir, next_pc, inst.bytes.size(),
+                                           DecodingContext(context_values)),
+            pc_ref_type),
+        pc_ref);
 
+    ir.CreateStore(
+        ir.CreateAdd(next_pc,
+                     llvm::ConstantInt::get(this->GetWordType(),
+                                            inst.bytes.size())),
+        next_pc_ref);
 
-  intoblock_builer.CreateStore(
-      intoblock_builer.CreateZExtOrTrunc(
-          this->decoder.LiftPcFromCurrPc(intoblock_builer, next_pc,
-                                         inst.bytes.size(),
-                                         DecodingContext(context_values)),
-          pc_ref_type),
-      pc_ref);
-
-  intoblock_builer.CreateStore(
-      intoblock_builer.CreateAdd(
-          next_pc,
-          llvm::ConstantInt::get(this->GetWordType(), inst.bytes.size())),
-      next_pc_ref);
-
-  // TODO(Ian): THIS IS AN UNSOUND ASSUMPTION THAT RETURNS ALWAYS RETURN TO THE FALLTHROUGH, this is just to make things work
-  intoblock_builer.CreateStore(
-      intoblock_builer.CreateLoad(this->GetWordType(), next_pc_ref),
-      LoadReturnProgramCounterRef(block));
+    // Keep RETURN_PC in sync with the best available fallthrough address.
+    if (inst.IsFunctionCall() && inst.branch_not_taken_pc != 0) {
+      ir.CreateStore(
+          llvm::ConstantInt::get(this->GetWordType(), inst.branch_not_taken_pc),
+          LoadReturnProgramCounterRef(block));
+    } else {
+      ir.CreateStore(
+          ir.CreateLoad(this->GetWordType(), next_pc_ref),
+          LoadReturnProgramCounterRef(block));
+    }
+  }
 
 
   std::array<llvm::Value *, 4> args = {
@@ -1920,23 +1966,62 @@ LiftStatus SleighLifter::LiftIntoBlockWithSleighState(
 
   const bool is_riscv = inst.arch_name == ArchName::kArchRISCV32 ||
                         inst.arch_name == ArchName::kArchRISCV64;
+  const bool is_mips =
+      inst.arch_name == ArchName::kArchMIPS32LittleEndian ||
+      inst.arch_name == ArchName::kArchMIPS64LittleEndian;
   if (is_riscv) {
     const auto [x0_ref, x0_ref_type] = LoadRegAddress(block, state_ptr, "X0");
-    intoblock_builer.CreateStore(llvm::ConstantInt::get(x0_ref_type, 0),
-                                 x0_ref);
+    ir.CreateStore(llvm::ConstantInt::get(x0_ref_type, 0), x0_ref);
   }
 
-  auto *const call_res = intoblock_builer.CreateCall(target_func, args);
-  intoblock_builer.CreateStore(call_res, remill::LoadMemoryPointerRef(block));
+  if (is_mips) {
+    const auto [zero_ref, zero_ref_type] =
+        LoadRegAddress(block, state_ptr, "ZERO");
+    ir.CreateStore(llvm::ConstantInt::get(zero_ref_type, 0), zero_ref);
+  }
+
+  auto *const call_res = ir.CreateCall(target_func, args);
+  ir.CreateStore(call_res, remill::LoadMemoryPointerRef(block));
 
   if (is_riscv) {
     const auto [x0_ref, x0_ref_type] = LoadRegAddress(block, state_ptr, "X0");
-    intoblock_builer.CreateStore(llvm::ConstantInt::get(x0_ref_type, 0),
-                                 x0_ref);
+    ir.CreateStore(llvm::ConstantInt::get(x0_ref_type, 0), x0_ref);
   }
 
-  // NOTE(Ian): If we made it past decoding we should be able to decode the bytes again
-  DLOG(INFO) << res.first;
+  if (is_mips) {
+    const auto [zero_ref, zero_ref_type] =
+        LoadRegAddress(block, state_ptr, "ZERO");
+    ir.CreateStore(llvm::ConstantInt::get(zero_ref_type, 0), zero_ref);
+  }
+
+  // If this is a conditional control flow instruction with a delay slot, then
+  // encode the post-delay target in `NEXT_PC` so that the delay slot lifter can
+  // restore it after executing the delayed instruction.
+  if (!is_delayed &&
+      (inst.has_branch_taken_delay_slot ||
+       inst.has_branch_not_taken_delay_slot) &&
+      inst.IsConditionalBranch() && inst.branch_taken_pc != 0 &&
+      inst.branch_not_taken_pc != 0) {
+    const auto taken_pc =
+        llvm::ConstantInt::get(this->GetWordType(), inst.branch_taken_pc);
+    const auto not_taken_pc =
+        llvm::ConstantInt::get(this->GetWordType(), inst.branch_not_taken_pc);
+
+    ir.CreateStore(ir.CreateSelect(remill::LoadBranchTaken(ir), taken_pc,
+                                   not_taken_pc),
+                   next_pc_ref);
+  }
+
+  if (is_delayed) {
+    // Restore the post-delay target computed by the branching instruction.
+    ir.CreateStore(ir.CreateZExtOrTrunc(next_pc, pc_ref_type), pc_ref);
+    ir.CreateStore(next_pc, next_pc_ref);
+
+    const auto mem_ptr_ref = LoadMemoryPointerRef(block);
+    llvm::Value *mem_ptr = ir.CreateLoad(this->GetMemoryType(), mem_ptr_ref);
+    mem_ptr = ir.CreateCall(this->GetIntrinsicTable()->delay_slot_end, {mem_ptr});
+    ir.CreateStore(mem_ptr, mem_ptr_ref);
+  }
 
   return res.first;
 }

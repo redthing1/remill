@@ -139,6 +139,9 @@ enum ArchName : std::uint32_t {
 
   kArchPPC,
 
+  kArchMIPS32LittleEndian,
+  kArchMIPS64LittleEndian,
+
   kArchRISCV32,
   kArchRISCV64,
 };

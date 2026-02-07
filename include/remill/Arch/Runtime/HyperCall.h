@@ -102,6 +102,13 @@ class SyncHyperCall {
     kRISCVEmulateInstruction = 0x600U,
     kRISCVSysCall,
     kRISCVBreak,
+
+    // MIPS usermode support uses hypercalls as an explicit escape hatch for
+    // system/privileged behavior.
+    kMIPSEmulateInstruction = 0x700U,
+    kMIPSSysCall,
+    kMIPSBreak,
+    kMIPSTrap,
   };
 } __attribute__((packed));
 
@@ -161,5 +168,11 @@ class AsyncHyperCall {
     kRISCVEmulateInstruction,
     kRISCVSysCall,
     kRISCVBreak,
+
+    // MIPS usermode system instructions.
+    kMIPSEmulateInstruction,
+    kMIPSSysCall,
+    kMIPSBreak,
+    kMIPSTrap,
   };
 } __attribute__((packed));
