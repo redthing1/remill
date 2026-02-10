@@ -3142,6 +3142,10 @@ static bool TryExtractSQABS_ASISDMISC_R(InstData &inst, uint32_t bits);
 static bool TryExtractSQABS_ASIMDMISC_R(InstData &inst, uint32_t bits);
 static bool TryExtractLDAR_LR32_LDSTEXCL(InstData &inst, uint32_t bits);
 static bool TryExtractLDAR_LR64_LDSTEXCL(InstData &inst, uint32_t bits);
+static bool TryExtractLDAPR_LR32_LDSTEXCL(InstData &inst, uint32_t bits);
+static bool TryExtractLDAPR_LR64_LDSTEXCL(InstData &inst, uint32_t bits);
+static bool TryExtractLDAPRB_LR32_LDSTEXCL(InstData &inst, uint32_t bits);
+static bool TryExtractLDAPRH_LR32_LDSTEXCL(InstData &inst, uint32_t bits);
 static bool TryExtractSTADDH_32S_MEMOP(InstData &inst, uint32_t bits);
 static bool TryExtractSTADDLH_32S_MEMOP(InstData &inst, uint32_t bits);
 static bool TryExtractLDRSW_64_LDST_IMMPOST(InstData &inst, uint32_t bits);
@@ -69113,6 +69117,195 @@ static bool TryExtractLDAR_LR64_LDSTEXCL(InstData &inst, uint32_t bits) {
   return true;
 }
 
+static bool TryExtractLDAPR_LR32_LDSTEXCL(InstData &inst, uint32_t bits) {
+
+  // ldapr (rcpc) is load-acquire with weak memory ordering
+  // for now, decode it as ldar (acquire)
+  //
+  //   bits
+  // & 11111111111111111111110000000000
+  //   --------------------------------
+  //   10111000101111111100000000000000
+  if ((bits & 0xfffffc00U) != 0xb8bfc000U) {
+    return false;
+  }
+  union {
+    uint32_t flat;
+    struct {
+      uint32_t Rt : 5;
+      uint32_t Rn : 5;
+      uint32_t Rt2 : 5;
+      uint32_t o0 : 1;
+      uint32_t Rs : 5;
+      uint32_t o1 : 1;
+      uint32_t L : 1;
+      uint32_t o2 : 1;
+      uint32_t _24 : 1;  // 1
+      uint32_t _25 : 1;  // 0
+      uint32_t _26 : 1;  // 1
+      uint32_t _27 : 1;  // 1
+      uint32_t _28 : 1;  // 1
+      uint32_t _29 : 1;  // 0
+      uint32_t size : 2;
+    } __attribute__((packed));
+  } __attribute__((packed)) enc;
+  static_assert(sizeof(enc) == 4, " ");
+  enc.flat = bits;
+  inst.Rt = static_cast<uint8_t>(enc.Rt);
+  inst.Rs = static_cast<uint8_t>(enc.Rs);
+  inst.L = static_cast<uint8_t>(enc.L);
+  inst.Rt2 = static_cast<uint8_t>(enc.Rt2);
+  inst.Rn = static_cast<uint8_t>(enc.Rn);
+  inst.size = static_cast<uint8_t>(enc.size);
+  inst.o2 = static_cast<uint8_t>(enc.o2);
+  inst.o1 = static_cast<uint8_t>(enc.o1);
+  inst.o0 = static_cast<uint8_t>(enc.o0);
+  inst.iform = InstForm::LDAR_LR32_LDSTEXCL;
+  inst.iclass = InstName::LDAR;
+  return true;
+}
+
+static bool TryExtractLDAPR_LR64_LDSTEXCL(InstData &inst, uint32_t bits) {
+
+  // ldapr (rcpc)
+  //
+  //   bits
+  // & 11111111111111111111110000000000
+  //   --------------------------------
+  //   11111000101111111100000000000000
+  if ((bits & 0xfffffc00U) != 0xf8bfc000U) {
+    return false;
+  }
+  union {
+    uint32_t flat;
+    struct {
+      uint32_t Rt : 5;
+      uint32_t Rn : 5;
+      uint32_t Rt2 : 5;
+      uint32_t o0 : 1;
+      uint32_t Rs : 5;
+      uint32_t o1 : 1;
+      uint32_t L : 1;
+      uint32_t o2 : 1;
+      uint32_t _24 : 1;  // 1
+      uint32_t _25 : 1;  // 0
+      uint32_t _26 : 1;  // 1
+      uint32_t _27 : 1;  // 1
+      uint32_t _28 : 1;  // 1
+      uint32_t _29 : 1;  // 0
+      uint32_t size : 2;
+    } __attribute__((packed));
+  } __attribute__((packed)) enc;
+  static_assert(sizeof(enc) == 4, " ");
+  enc.flat = bits;
+  inst.Rt = static_cast<uint8_t>(enc.Rt);
+  inst.Rs = static_cast<uint8_t>(enc.Rs);
+  inst.L = static_cast<uint8_t>(enc.L);
+  inst.Rt2 = static_cast<uint8_t>(enc.Rt2);
+  inst.Rn = static_cast<uint8_t>(enc.Rn);
+  inst.size = static_cast<uint8_t>(enc.size);
+  inst.o2 = static_cast<uint8_t>(enc.o2);
+  inst.o1 = static_cast<uint8_t>(enc.o1);
+  inst.o0 = static_cast<uint8_t>(enc.o0);
+  inst.iform = InstForm::LDAR_LR64_LDSTEXCL;
+  inst.iclass = InstName::LDAR;
+  return true;
+}
+
+static bool TryExtractLDAPRB_LR32_LDSTEXCL(InstData &inst, uint32_t bits) {
+
+  // ldaprb (rcpc)
+  //
+  //   bits
+  // & 11111111111111111111110000000000
+  //   --------------------------------
+  //   00111000101111111100000000000000
+  if ((bits & 0xfffffc00U) != 0x38bfc000U) {
+    return false;
+  }
+  union {
+    uint32_t flat;
+    struct {
+      uint32_t Rt : 5;
+      uint32_t Rn : 5;
+      uint32_t Rt2 : 5;
+      uint32_t o0 : 1;
+      uint32_t Rs : 5;
+      uint32_t o1 : 1;
+      uint32_t L : 1;
+      uint32_t o2 : 1;
+      uint32_t _24 : 1;  // 1
+      uint32_t _25 : 1;  // 0
+      uint32_t _26 : 1;  // 1
+      uint32_t _27 : 1;  // 1
+      uint32_t _28 : 1;  // 1
+      uint32_t _29 : 1;  // 0
+      uint32_t size : 2;
+    } __attribute__((packed));
+  } __attribute__((packed)) enc;
+  static_assert(sizeof(enc) == 4, " ");
+  enc.flat = bits;
+  inst.Rt = static_cast<uint8_t>(enc.Rt);
+  inst.Rs = static_cast<uint8_t>(enc.Rs);
+  inst.L = static_cast<uint8_t>(enc.L);
+  inst.Rt2 = static_cast<uint8_t>(enc.Rt2);
+  inst.Rn = static_cast<uint8_t>(enc.Rn);
+  inst.size = static_cast<uint8_t>(enc.size);
+  inst.o2 = static_cast<uint8_t>(enc.o2);
+  inst.o1 = static_cast<uint8_t>(enc.o1);
+  inst.o0 = static_cast<uint8_t>(enc.o0);
+  inst.iform = InstForm::LDARB_LR32_LDSTEXCL;
+  inst.iclass = InstName::LDARB;
+  return true;
+}
+
+static bool TryExtractLDAPRH_LR32_LDSTEXCL(InstData &inst, uint32_t bits) {
+
+  // ldaprh (rcpc)
+  //
+  //   bits
+  // & 11111111111111111111110000000000
+  //   --------------------------------
+  //   01111000101111111100000000000000
+  if ((bits & 0xfffffc00U) != 0x78bfc000U) {
+    return false;
+  }
+  union {
+    uint32_t flat;
+    struct {
+      uint32_t Rt : 5;
+      uint32_t Rn : 5;
+      uint32_t Rt2 : 5;
+      uint32_t o0 : 1;
+      uint32_t Rs : 5;
+      uint32_t o1 : 1;
+      uint32_t L : 1;
+      uint32_t o2 : 1;
+      uint32_t _24 : 1;  // 1
+      uint32_t _25 : 1;  // 0
+      uint32_t _26 : 1;  // 1
+      uint32_t _27 : 1;  // 1
+      uint32_t _28 : 1;  // 1
+      uint32_t _29 : 1;  // 0
+      uint32_t size : 2;
+    } __attribute__((packed));
+  } __attribute__((packed)) enc;
+  static_assert(sizeof(enc) == 4, " ");
+  enc.flat = bits;
+  inst.Rt = static_cast<uint8_t>(enc.Rt);
+  inst.Rs = static_cast<uint8_t>(enc.Rs);
+  inst.L = static_cast<uint8_t>(enc.L);
+  inst.Rt2 = static_cast<uint8_t>(enc.Rt2);
+  inst.Rn = static_cast<uint8_t>(enc.Rn);
+  inst.size = static_cast<uint8_t>(enc.size);
+  inst.o2 = static_cast<uint8_t>(enc.o2);
+  inst.o1 = static_cast<uint8_t>(enc.o1);
+  inst.o0 = static_cast<uint8_t>(enc.o0);
+  inst.iform = InstForm::LDARH_LR32_LDSTEXCL;
+  inst.iclass = InstName::LDARH;
+  return true;
+}
+
 static bool TryExtractSTADDH_32S_MEMOP(InstData &inst, uint32_t bits) {
 
   //   bits
@@ -76588,7 +76781,11 @@ static bool TryExtract5(InstData &inst, uint32_t bits) {
 
 // 00011000000000000000000000000000
 static bool TryExtract6(InstData &inst, uint32_t bits) {
-  return false || TryExtractSTADD_32S_MEMOP(inst, bits) ||
+  return false || TryExtractLDAPRB_LR32_LDSTEXCL(inst, bits) ||
+         TryExtractLDAPRH_LR32_LDSTEXCL(inst, bits) ||
+         TryExtractLDAPR_LR32_LDSTEXCL(inst, bits) ||
+         TryExtractLDAPR_LR64_LDSTEXCL(inst, bits) ||
+         TryExtractSTADD_32S_MEMOP(inst, bits) ||
          TryExtractSTUMINLH_32S_MEMOP(inst, bits) ||
          TryExtractSTUMAXLB_32S_MEMOP(inst, bits) ||
          TryExtractREV_64_DP_1SRC(inst, bits) ||
