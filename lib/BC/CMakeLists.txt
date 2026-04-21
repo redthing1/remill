@@ -30,10 +30,15 @@ add_library(remill_bc STATIC
   IntrinsicTable.cpp
   Optimizer.cpp
   TraceLifter.cpp
-  SleighLifter.cpp
-  PcodeCFG.cpp
   Util.cpp
 )
+
+if(REMILL_ENABLE_SLEIGH)
+  target_sources(remill_bc PRIVATE
+    PcodeCFG.cpp
+    SleighLifter.cpp
+  )
+endif()
 
 target_include_directories(remill_bc AFTER PRIVATE "${REMILL_SOURCE_DIR}")
 

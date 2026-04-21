@@ -26,23 +26,62 @@ add_library(remill_arch STATIC
   Name.cpp
 )
 
-add_subdirectory(AArch32)
-add_subdirectory(AArch64)
-add_subdirectory(PPC)
-add_subdirectory(MIPS)
-add_subdirectory(RISCV)
-add_subdirectory(SPARC32)
-add_subdirectory(SPARC64)
-add_subdirectory(Sleigh)
-add_subdirectory(X86)
-
 target_link_libraries(remill_arch PUBLIC
-  remill_arch_aarch64
-  remill_arch_sleigh
-  remill_arch_sparc32
-  remill_arch_sparc64
-  remill_arch_x86
+  remill_settings
 )
+
+set(REMILL_ARCH_LINK_LIBS "")
+
+if(REMILL_ENABLE_ARCH_AARCH32)
+  add_subdirectory(AArch32)
+endif()
+
+if(REMILL_ENABLE_ARCH_AARCH64)
+  add_subdirectory(AArch64)
+  list(APPEND REMILL_ARCH_LINK_LIBS remill_arch_aarch64)
+endif()
+
+if(REMILL_ENABLE_ARCH_PPC)
+  add_subdirectory(PPC)
+endif()
+
+if(REMILL_ENABLE_ARCH_MIPS)
+  add_subdirectory(MIPS)
+endif()
+
+if(REMILL_ENABLE_ARCH_RISCV)
+  add_subdirectory(RISCV)
+endif()
+
+if(REMILL_ENABLE_ARCH_SPARC)
+  add_subdirectory(SPARC32)
+  add_subdirectory(SPARC64)
+  list(APPEND REMILL_ARCH_LINK_LIBS
+    remill_arch_sparc32
+    remill_arch_sparc64
+  )
+endif()
+
+set(REMILL_BUILD_SLEIGH_BACKENDS OFF)
+if(REMILL_ENABLE_SLEIGH)
+  if(REMILL_ENABLE_ARCH_X86 OR REMILL_ENABLE_ARCH_AARCH64 OR REMILL_ENABLE_ARCH_AARCH32 OR REMILL_ENABLE_ARCH_SPARC OR REMILL_ENABLE_ARCH_PPC OR REMILL_ENABLE_ARCH_RISCV OR REMILL_ENABLE_ARCH_MIPS)
+    set(REMILL_BUILD_SLEIGH_BACKENDS ON)
+  endif()
+endif()
+
+if(REMILL_BUILD_SLEIGH_BACKENDS)
+  add_subdirectory(Sleigh)
+  list(APPEND REMILL_ARCH_LINK_LIBS remill_arch_sleigh)
+endif()
+
+if(REMILL_ENABLE_ARCH_X86)
+  add_subdirectory(X86)
+  list(APPEND REMILL_ARCH_LINK_LIBS remill_arch_x86)
+endif()
+
+if(REMILL_ARCH_LINK_LIBS)
+  target_link_libraries(remill_arch PUBLIC ${REMILL_ARCH_LINK_LIBS})
+endif()
 
 if(REMILL_ENABLE_INSTALL_TARGET)
   install(TARGETS remill_arch

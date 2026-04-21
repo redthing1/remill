@@ -25,6 +25,7 @@ add_library(remill_arch_aarch64 STATIC
   "${REMILL_INCLUDE_DIR}/remill/Arch/AArch64/Runtime/State.h"
   "${REMILL_INCLUDE_DIR}/remill/Arch/AArch64/Runtime/Types.h"
 
+  AArch64Base.cpp
   Arch.cpp
   Decode.cpp
   Decode.h

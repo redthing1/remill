@@ -24,6 +24,7 @@ add_library(remill_arch_sparc32 STATIC
   "${REMILL_INCLUDE_DIR}/remill/Arch/SPARC32/Runtime/State.h"
   "${REMILL_INCLUDE_DIR}/remill/Arch/SPARC32/Runtime/Types.h"
 
+  SPARC32Base.cpp
   Arch.cpp
   Decode.h
   Extract.cpp

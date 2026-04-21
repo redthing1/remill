@@ -44,4 +44,6 @@ function(add_runtime_helper target_name little_endian)
 endfunction()
 
 add_runtime_helper(sparc32 0)
-add_runtime_helper(sparc32_sleigh 0)
+if(REMILL_ENABLE_SLEIGH)
+  add_runtime_helper(sparc32_sleigh 0)
+endif()

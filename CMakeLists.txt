@@ -19,7 +19,6 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ccache.cmake")
 
 project(remill C CXX ASM)
 include(GNUInstallDirs)
-include(FetchContent)
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/settings.cmake")
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/utils.cmake")
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/options.cmake")
@@ -29,6 +28,58 @@ if(REMILL_ENABLE_TESTING)
 endif()
 
 message(STATUS "Compiler ID is ${CMAKE_C_COMPILER_ID}")
+
+if(NOT REMILL_ENABLE_SLEIGH)
+  foreach(remill_sleigh_arch_option
+      REMILL_ENABLE_ARCH_AARCH32
+      REMILL_ENABLE_ARCH_PPC
+      REMILL_ENABLE_ARCH_MIPS
+      REMILL_ENABLE_ARCH_RISCV)
+    if(${remill_sleigh_arch_option})
+      message(FATAL_ERROR "${remill_sleigh_arch_option} requires REMILL_ENABLE_SLEIGH=ON")
+    endif()
+  endforeach()
+endif()
+
+set(REMILL_ENABLE_SLEIGH_INT 0)
+if(REMILL_ENABLE_SLEIGH)
+  set(REMILL_ENABLE_SLEIGH_INT 1)
+endif()
+
+set(REMILL_ENABLE_ARCH_X86_INT 0)
+if(REMILL_ENABLE_ARCH_X86)
+  set(REMILL_ENABLE_ARCH_X86_INT 1)
+endif()
+
+set(REMILL_ENABLE_ARCH_AARCH64_INT 0)
+if(REMILL_ENABLE_ARCH_AARCH64)
+  set(REMILL_ENABLE_ARCH_AARCH64_INT 1)
+endif()
+
+set(REMILL_ENABLE_ARCH_AARCH32_INT 0)
+if(REMILL_ENABLE_ARCH_AARCH32)
+  set(REMILL_ENABLE_ARCH_AARCH32_INT 1)
+endif()
+
+set(REMILL_ENABLE_ARCH_SPARC_INT 0)
+if(REMILL_ENABLE_ARCH_SPARC)
+  set(REMILL_ENABLE_ARCH_SPARC_INT 1)
+endif()
+
+set(REMILL_ENABLE_ARCH_PPC_INT 0)
+if(REMILL_ENABLE_ARCH_PPC)
+  set(REMILL_ENABLE_ARCH_PPC_INT 1)
+endif()
+
+set(REMILL_ENABLE_ARCH_MIPS_INT 0)
+if(REMILL_ENABLE_ARCH_MIPS)
+  set(REMILL_ENABLE_ARCH_MIPS_INT 1)
+endif()
+
+set(REMILL_ENABLE_ARCH_RISCV_INT 0)
+if(REMILL_ENABLE_ARCH_RISCV)
+  set(REMILL_ENABLE_ARCH_RISCV_INT 1)
+endif()
 
 #
 # libraries
@@ -84,8 +135,10 @@ set(REMILL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include")
 set(REMILL_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib")
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/BCCompiler.cmake")
 
-# Intel XED
-find_package(XED CONFIG REQUIRED)
+if(REMILL_ENABLE_ARCH_X86)
+  # Intel XED
+  find_package(XED CONFIG REQUIRED)
+endif()
 
 # Google glog module
 find_package(glog CONFIG REQUIRED)
@@ -94,29 +147,33 @@ find_package(glog CONFIG REQUIRED)
 set(GFLAGS_USE_TARGET_NAMESPACE ON)
 find_package(gflags CONFIG REQUIRED)
 
-# Sleigh
-file(GLOB sleigh_patches "${CMAKE_CURRENT_SOURCE_DIR}/patches/sleigh/*.patch")
-set(sleigh_ADDITIONAL_PATCHES "${sleigh_patches}" CACHE STRING "" FORCE)
-set(sleigh_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
-set(sleigh_RELEASE_TYPE "HEAD" CACHE STRING "" FORCE)
-set(sleigh_BUILD_SUPPORT ON CACHE BOOL "" FORCE)
-set(sleigh_BUILD_SLEIGHSPECS ON CACHE BOOL "" FORCE)
+if(REMILL_ENABLE_SLEIGH)
+  include(FetchContent)
 
-# Verbose fetch content updates
-set(FETCHCONTENT_QUIET OFF)
+  # Sleigh
+  file(GLOB sleigh_patches "${CMAKE_CURRENT_SOURCE_DIR}/patches/sleigh/*.patch")
+  set(sleigh_ADDITIONAL_PATCHES "${sleigh_patches}" CACHE STRING "" FORCE)
+  set(sleigh_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
+  set(sleigh_RELEASE_TYPE "HEAD" CACHE STRING "" FORCE)
+  set(sleigh_BUILD_SUPPORT ON CACHE BOOL "" FORCE)
+  set(sleigh_BUILD_SLEIGHSPECS ON CACHE BOOL "" FORCE)
 
-# This version of sleigh (HEAD) pins Ghidra somewhere between Ghidra v10.2.3 and v10.3
-# https://github.com/lifting-bits/sleigh/blob/7c6b742/src/setup-ghidra-source.cmake#L55-L66
-FetchContent_Declare(sleigh
-  GIT_REPOSITORY https://github.com/lifting-bits/sleigh.git
-  GIT_TAG 7c6b742
-)
-FetchContent_MakeAvailable(sleigh)
+  # Verbose fetch content updates
+  set(FETCHCONTENT_QUIET OFF)
 
-# Get the Ghidra source directory from FetchContent's internal tracking
-FetchContent_GetProperties(GhidraSource)
-if(NOT ghidrasource_POPULATED)
-  message(FATAL_ERROR "Expected sleigh to populate GhidraSource")
+  # This version of sleigh (HEAD) pins Ghidra somewhere between Ghidra v10.2.3 and v10.3
+  # https://github.com/lifting-bits/sleigh/blob/7c6b742/src/setup-ghidra-source.cmake#L55-L66
+  FetchContent_Declare(sleigh
+    GIT_REPOSITORY https://github.com/lifting-bits/sleigh.git
+    GIT_TAG 7c6b742
+  )
+  FetchContent_MakeAvailable(sleigh)
+
+  # Get the Ghidra source directory from FetchContent's internal tracking
+  FetchContent_GetProperties(GhidraSource)
+  if(NOT ghidrasource_POPULATED)
+    message(FATAL_ERROR "Expected sleigh to populate GhidraSource")
+  endif()
 endif()
 
 # For Linux builds, group LLVM libraries into a single group
@@ -228,34 +285,53 @@ target_compile_definitions(remill_settings INTERFACE
   "REMILL_BUILD_SEMANTICS_DIR_RISCV64=\"${REMILL_BUILD_SEMANTICS_DIR_RISCV64}\""
   "REMILL_BUILD_SEMANTICS_DIR_MIPS32EL=\"${REMILL_BUILD_SEMANTICS_DIR_MIPS32EL}\""
   "REMILL_BUILD_SEMANTICS_DIR_MIPS64EL=\"${REMILL_BUILD_SEMANTICS_DIR_MIPS64EL}\""
+  "REMILL_ENABLE_SLEIGH=${REMILL_ENABLE_SLEIGH_INT}"
+  "REMILL_ENABLE_ARCH_X86=${REMILL_ENABLE_ARCH_X86_INT}"
+  "REMILL_ENABLE_ARCH_AARCH64=${REMILL_ENABLE_ARCH_AARCH64_INT}"
+  "REMILL_ENABLE_ARCH_AARCH32=${REMILL_ENABLE_ARCH_AARCH32_INT}"
+  "REMILL_ENABLE_ARCH_SPARC=${REMILL_ENABLE_ARCH_SPARC_INT}"
+  "REMILL_ENABLE_ARCH_PPC=${REMILL_ENABLE_ARCH_PPC_INT}"
+  "REMILL_ENABLE_ARCH_MIPS=${REMILL_ENABLE_ARCH_MIPS_INT}"
+  "REMILL_ENABLE_ARCH_RISCV=${REMILL_ENABLE_ARCH_RISCV_INT}"
 )
 
-if(SLEIGH_EXECUTABLE)
-  set(sleigh_compiler "${SLEIGH_EXECUTABLE}")
-else()
-  set(sleigh_compiler "$<TARGET_FILE:sleigh::sleigh>")
+if(REMILL_ENABLE_SLEIGH)
+  if(SLEIGH_EXECUTABLE)
+    set(sleigh_compiler "${SLEIGH_EXECUTABLE}")
+  else()
+    set(sleigh_compiler "$<TARGET_FILE:sleigh::sleigh>")
+  endif()
+
+  add_custom_target(sleigh_custom_specs)
+
+  if(REMILL_ENABLE_ARCH_PPC)
+    sleigh_compile(
+      TARGET ppc_e200_spec
+      COMPILER "${sleigh_compiler}"
+      SLASPEC "${ghidrasource_SOURCE_DIR}/Ghidra/Processors/PowerPC/data/languages/ppc_32_e200_be.slaspec"
+      LOG_FILE "${sleigh_BINARY_DIR}/sleighspecs/spec_build_logs/ppc_32_e200_be.sla.log"
+      OUT_FILE "${sleigh_BINARY_DIR}/specfiles/Ghidra/Processors/PowerPC/data/languages/ppc_32_e200_be.sla"
+    )
+
+    add_dependencies(sleigh_custom_specs ppc_e200_spec)
+  endif()
 endif()
-
-sleigh_compile(
-  TARGET ppc_e200_spec
-  COMPILER "${sleigh_compiler}"
-  SLASPEC "${ghidrasource_SOURCE_DIR}/Ghidra/Processors/PowerPC/data/languages/ppc_32_e200_be.slaspec"
-  LOG_FILE "${sleigh_BINARY_DIR}/sleighspecs/spec_build_logs/ppc_32_e200_be.sla.log"
-  OUT_FILE "${sleigh_BINARY_DIR}/specfiles/Ghidra/Processors/PowerPC/data/languages/ppc_32_e200_be.sla"
-)
-
-add_custom_target(sleigh_custom_specs)
-add_dependencies(sleigh_custom_specs ppc_e200_spec)
 
 target_link_libraries(remill_settings INTERFACE
   ${llvm_libs}
-  XED::XED
   glog::glog
   gflags::gflags
-  sleigh::sla
-  sleigh::decomp
-  sleigh::support
 )
+if(REMILL_ENABLE_ARCH_X86)
+  target_link_libraries(remill_settings INTERFACE XED::XED)
+endif()
+if(REMILL_ENABLE_SLEIGH)
+  target_link_libraries(remill_settings INTERFACE
+    sleigh::sla
+    sleigh::decomp
+    sleigh::support
+  )
+endif()
 
 add_subdirectory(lib/Arch)
 add_subdirectory(lib/BC)
@@ -266,18 +342,24 @@ add_library(remill INTERFACE)
 target_link_libraries(remill INTERFACE
   ${LINKER_START_GROUP}
   ${llvm_libs}
-  XED::XED
   glog::glog
   gflags::gflags
-  sleigh::sla
-  sleigh::decomp
-  sleigh::support
   remill_bc
   remill_os
   remill_arch
   remill_version
   ${LINKER_END_GROUP}
 )
+if(REMILL_ENABLE_ARCH_X86)
+  target_link_libraries(remill INTERFACE XED::XED)
+endif()
+if(REMILL_ENABLE_SLEIGH)
+  target_link_libraries(remill INTERFACE
+    sleigh::sla
+    sleigh::decomp
+    sleigh::support
+  )
+endif()
 
 #
 # Also install clang, libllvm and llvm-link
@@ -294,10 +376,14 @@ InstallExternalTarget("ext_llvmlink" "${LLVMLINK_PATH}" "BIN" "${INSTALLED_LLVML
 add_custom_target(semantics)
 
 # shared JIT tools
-add_subdirectory(test_runner_lib)
+if(REMILL_ENABLE_TEST_RUNNER)
+  add_subdirectory(test_runner_lib)
+endif()
 
 # tools
-add_subdirectory(bin)
+if(REMILL_ENABLE_TOOLS)
+  add_subdirectory(bin)
+endif()
 
 if(REMILL_ENABLE_INSTALL_TARGET)
   install(TARGETS remill EXPORT remillTargets)
@@ -306,7 +392,9 @@ if(REMILL_ENABLE_INSTALL_TARGET)
     EXPORT remillTargets
   )
 
-  install(FILES "${sleigh_BINARY_DIR}/specfiles/Ghidra/Processors/PowerPC/data/languages/ppc_32_e200_be.sla" DESTINATION "${CMAKE_INSTALL_DATADIR}/sleigh/specfiles/Ghidra/Processors/PowerPC/data/languages/")
+  if(REMILL_ENABLE_SLEIGH AND REMILL_ENABLE_ARCH_PPC)
+    install(FILES "${sleigh_BINARY_DIR}/specfiles/Ghidra/Processors/PowerPC/data/languages/ppc_32_e200_be.sla" DESTINATION "${CMAKE_INSTALL_DATADIR}/sleigh/specfiles/Ghidra/Processors/PowerPC/data/languages/")
+  endif()
 
   configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/remillConfig.cmake.in"
